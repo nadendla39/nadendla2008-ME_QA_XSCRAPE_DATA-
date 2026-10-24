@@ -26,43 +26,40 @@ public class TestCases {
 
     @BeforeClass
     public void setUp() {
-        // Step 1: Create directories for logs and results
+        // Comment: Setting up directories
         new File("build").mkdirs();
         new File("output").mkdirs();
         new File("assesment/assets").mkdirs();
         System.setProperty(ChromeDriverService.CHROME_DRIVER_LOG_PROPERTY, "build/chromedriver.log");
         System.setProperty(ChromeDriverService.CHROME_DRIVER_VERBOSE_LOG_PROPERTY, "true");
 
-        // Step 2: Initialize ChromeDriver options
+        // Comment: Configuring Chrome options
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--disable-blink-features=AutomationControlled");
         driver = new ChromeDriver(options);
         driver.manage().window().maximize();
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(6));
 
-        // Step 3: Explicit wait initialization
+        // Comment: Explicit WebDriverWait initialization
         wait = new WebDriverWait(driver, Duration.ofSeconds(12));
         wrappers = new Wrappers(driver);
-        System.out.println("Driver setup completed successfully.");
+        System.out.println("Driver setup finished successfully");
     }
 
-    /**
-     * testCase01: Scrape Hockey Teams data across 4 pages where Win % < 40% (0.40)
-     * and save to output/hockey-team-data.json
-     */
     @Test(priority = 1)
     public void testCase01() throws InterruptedException {
-        // Comment 1: Navigate to the hockey scraping page
-        System.out.println("Starting testCase01: Hockey Teams Scraper");
+        // Comment: Step 1 - Navigate to Hockey page
+        System.out.println("Starting testCase01 - Hockey Teams Scraper");
         wrappers.navigateTo("https://www.scrapethissite.com/pages/");
         wrappers.clickElement(By.linkText("Hockey Teams: Forms, Searching and Pagination"));
 
         List<HashMap<String, Object>> hockeyData = new ArrayList<>();
 
-        // Comment 2: Loop through 4 pages of hockey team records
+        // Comment: Step 2 - Loop through pages
         for (int page = 1; page <= 4; page++) {
-            // Explicit wait statement checking for team rows
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='team']")));
+            // Wait for table to load
+            WebDriverWait wait1 = new WebDriverWait(driver, Duration.ofSeconds(10));
+            wait1.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='team']")));
             List<WebElement> rows = driver.findElements(By.xpath("//tr[@class='team']"));
 
             for (WebElement row : rows) {
@@ -70,7 +67,7 @@ public class TestCases {
                     String winPctText = row.findElement(By.xpath("./td[contains(@class,'pct')]")).getText().trim();
                     if (!winPctText.isEmpty()) {
                         double winPct = Double.parseDouble(winPctText);
-                        // Filter records where win percentage is strictly less than 40%
+                        // Filter records
                         if (winPct < 0.40) {
                             String teamName = row.findElement(By.xpath("./td[contains(@class,'name')]")).getText().trim();
                             String year = row.findElement(By.xpath("./td[contains(@class,'year')]")).getText().trim();
@@ -86,7 +83,6 @@ public class TestCases {
                 } catch (Exception ignored) {}
             }
 
-            // Click next page link if not on 4th page
             if (page < 4) {
                 int nextPage = page + 1;
                 By nextLocator = By.xpath("//ul[contains(@class,'pagination')]//a[contains(@href,'page_num=" + nextPage + "') or text()='" + nextPage + "']");
@@ -95,8 +91,8 @@ public class TestCases {
             }
         }
 
-        // Comment 3: Print summary of hockey data items collected
-        System.out.println("testCase01 - Total items collected (< 40% Win): " + hockeyData.size());
+        // Comment: Step 3 - Output JSON results
+        System.out.println("testCase01 - Total items collected: " + hockeyData.size());
         wrappers.convertListToJsonFile(hockeyData, "output/hockey-team-data.json");
         wrappers.convertListToJsonFile(hockeyData, "hockey-team-data.json");
 
@@ -105,14 +101,10 @@ public class TestCases {
         Assert.assertTrue(jsonFile.length() > 0, "Verify hockey-team-data.json is not empty");
     }
 
-    /**
-     * testCase02: Scrape Oscar Winning Films for all years, fetch top 5 movies per year,
-     * identify isWinner, and save to output/oscar-winner-data.json
-     */
     @Test(priority = 2)
     public void testCase02() throws InterruptedException {
-        // Comment 4: Navigate to Oscar Winning Films page
-        System.out.println("Starting testCase02: Oscar Winning Films Scraper");
+        // Comment: Step 1 - Navigate to Oscar Films
+        System.out.println("Starting testCase02 - Oscar Films Scraper");
         wrappers.navigateTo("https://www.scrapethissite.com/pages/");
 
         try {
@@ -122,13 +114,14 @@ public class TestCases {
         }
 
         List<HashMap<String, Object>> oscarData = new ArrayList<>();
-        // Explicit wait statement checking for year links
-        wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//a[contains(@class,'year-link')]")));
+        // Wait for year buttons
+        WebDriverWait wait2 = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait2.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//a[contains(@class,'year-link')]")));
         List<WebElement> yearLinks = driver.findElements(By.xpath("//a[contains(@class,'year-link')]"));
 
         int totalYears = yearLinks.size();
         for (int i = 0; i < totalYears; i++) {
-            // Comment 5: Re-fetch year links to handle AJAX re-rendering
+            // Comment: Iterate each year
             List<WebElement> currentYears = driver.findElements(By.xpath("//a[contains(@class,'year-link')]"));
             WebElement yearLink = currentYears.get(i);
             String yearText = yearLink.getText().trim();
@@ -136,15 +129,16 @@ public class TestCases {
 
             wrappers.clickElement(By.id(yearId));
 
-            // Explicit wait statement checking for film table rows
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='film']")));
+            // Wait for films table
+            WebDriverWait wait3 = new WebDriverWait(driver, Duration.ofSeconds(10));
+            wait3.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='film']")));
             Thread.sleep(1200);
 
             int limit = Math.min(5, driver.findElements(By.xpath("//tr[@class='film']")).size());
             for (int j = 1; j <= limit; j++) {
                 try {
                     String baseRowXpath = "(//tr[@class='film'])[" + j + "]";
-                    WebElement rowElem = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(baseRowXpath)));
+                    WebElement rowElem = wait3.until(ExpectedConditions.presenceOfElementLocated(By.xpath(baseRowXpath)));
 
                     String title = rowElem.findElement(By.xpath(".//td[contains(@class,'film-title')]")).getText().trim();
                     String nominations = rowElem.findElement(By.xpath(".//td[contains(@class,'film-nominations')]")).getText().trim();
@@ -168,7 +162,7 @@ public class TestCases {
             }
         }
 
-        // Comment 6: Save Oscar results to output JSON
+        // Comment: Step 3 - Output Oscar JSON
         System.out.println("testCase02 - Total Oscar records collected: " + oscarData.size());
         wrappers.convertListToJsonFile(oscarData, "output/oscar-winner-data.json");
         wrappers.convertListToJsonFile(oscarData, "oscar-winner-data.json");
@@ -180,7 +174,7 @@ public class TestCases {
 
     @AfterClass
     public void tearDown() {
-        // Comment 7: Close driver session
+        // Comment: Tear down driver
         System.out.println("Tearing down Chrome driver session.");
         if (driver != null) {
             driver.quit();
