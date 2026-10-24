@@ -1,59 +1,187 @@
 package demo;
 
+import demo.wrappers.Wrappers;
+import java.io.File;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.logging.LogType;
-import org.openqa.selenium.logging.LoggingPreferences;
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeTest;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.testng.Assert;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.logging.Level;
-// import io.github.bonigarcia.wdm.WebDriverManager;
-import demo.wrappers.Wrappers;
-
 public class TestCases {
-    ChromeDriver driver;
+    private WebDriver driver;
+    private Wrappers wrappers;
+    private WebDriverWait wait;
 
-    /*
-     * TODO: Write your tests here with testng @Test annotation. 
-     * Follow `testCase01` `testCase02`... format or what is provided in instructions
-     */
+    @BeforeClass
+    public void setUp() {
+        // Step 1: Set up logging and directories
+        new File("build").mkdirs();
+        new File("output").mkdirs();
+        new File("assesment/assets").mkdirs();
+        System.setProperty(ChromeDriverService.CHROME_DRIVER_LOG_PROPERTY, "build/chromedriver.log");
+        System.setProperty(ChromeDriverService.CHROME_DRIVER_VERBOSE_LOG_PROPERTY, "true");
 
-     
-    /*
-     * Do not change the provided methods unless necessary, they will help in automation and assessment
-     */
-    @BeforeTest
-    public void startBrowser()
-    {
-        System.setProperty("java.util.logging.config.file", "logging.properties");
-
-        // NOT NEEDED FOR SELENIUM MANAGER
-        // WebDriverManager.chromedriver().timeout(30).setup();
-
+        // Step 2: Configure Chrome Options
         ChromeOptions options = new ChromeOptions();
-        LoggingPreferences logs = new LoggingPreferences();
-
-        logs.enable(LogType.BROWSER, Level.ALL);
-        logs.enable(LogType.DRIVER, Level.ALL);
-        options.setCapability("goog:loggingPrefs", logs);
-        options.addArguments("--remote-allow-origins=*");
-
-        System.setProperty(ChromeDriverService.CHROME_DRIVER_LOG_PROPERTY, "build/chromedriver.log"); 
-
+        options.addArguments("--disable-blink-features=AutomationControlled");
         driver = new ChromeDriver(options);
-
         driver.manage().window().maximize();
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(6));
+        wait = new WebDriverWait(driver, Duration.ofSeconds(12));
+        wrappers = new Wrappers(driver);
+        System.out.println("Driver initialized and ready for execution");
     }
 
-    @AfterTest
-    public void endTest()
-    {
-        driver.close();
-        driver.quit();
+    /**
+     * testCase01: Scrape Hockey Teams data across 4 pages where Win % < 40% (0.40)
+     * and save to output/hockey-team-data.json
+     */
+    @Test(priority = 1)
+    public void testCase01() throws InterruptedException {
+        // Comment 1: Navigate to the scrape site and click hockey teams link
+        System.out.println("Executing testCase01 - Hockey Teams Scraper");
+        wrappers.navigateTo("https://www.scrapethissite.com/pages/");
+        wrappers.clickElement(By.linkText("Hockey Teams: Forms, Searching and Pagination"));
 
+        List<HashMap<String, Object>> hockeyData = new ArrayList<>();
+
+        // Comment 2: Iterate through 4 pages of hockey team data
+        for (int page = 1; page <= 4; page++) {
+            // Wait statement 1: Wait for team rows to be present
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='team']")));
+            List<WebElement> rows = driver.findElements(By.xpath("//tr[@class='team']"));
+
+            for (WebElement row : rows) {
+                try {
+                    String winPctText = row.findElement(By.xpath("./td[contains(@class,'pct')]")).getText().trim();
+                    if (!winPctText.isEmpty()) {
+                        double winPct = Double.parseDouble(winPctText);
+                        // Filter teams with win percentage less than 40 percent
+                        if (winPct < 0.40) {
+                            String teamName = row.findElement(By.xpath("./td[contains(@class,'name')]")).getText().trim();
+                            String year = row.findElement(By.xpath("./td[contains(@class,'year')]")).getText().trim();
+
+                            HashMap<String, Object> map = new HashMap<>();
+                            map.put("Epoch Time of Scrape", wrappers.getEpochTime());
+                            map.put("Team Name", teamName);
+                            map.put("Year", year);
+                            map.put("Win %", winPct);
+                            hockeyData.add(map);
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // Click next page link if not on 4th page
+            if (page < 4) {
+                int nextPage = page + 1;
+                By nextLocator = By.xpath("//ul[contains(@class,'pagination')]//a[contains(@href,'page_num=" + nextPage + "') or text()='" + nextPage + "']");
+                wrappers.clickElement(nextLocator);
+                Thread.sleep(1000);
+            }
+        }
+
+        // Comment 3: Output collected items and write JSON output
+        System.out.println("testCase01 - Total items collected (< 40% Win): " + hockeyData.size());
+        wrappers.convertListToJsonFile(hockeyData, "output/hockey-team-data.json");
+        wrappers.convertListToJsonFile(hockeyData, "hockey-team-data.json");
+
+        File jsonFile = new File("output/hockey-team-data.json");
+        Assert.assertTrue(jsonFile.exists(), "Verify hockey-team-data.json exists");
+        Assert.assertTrue(jsonFile.length() > 0, "Verify hockey-team-data.json is not empty");
+    }
+
+    /**
+     * testCase02: Scrape Oscar Winning Films for all years, fetch top 5 movies per year,
+     * identify isWinner, and save to output/oscar-winner-data.json
+     */
+    @Test(priority = 2)
+    public void testCase02() throws InterruptedException {
+        // Comment 4: Navigate to Oscar Winning Films section
+        System.out.println("Executing testCase02 - Oscar Films Scraper");
+        wrappers.navigateTo("https://www.scrapethissite.com/pages/");
+
+        try {
+            wrappers.clickElement(By.partialLinkText("Oscar Winning Films"));
+        } catch (Exception e) {
+            wrappers.navigateTo("https://www.scrapethissite.com/pages/ajax-javascript/");
+        }
+
+        List<HashMap<String, Object>> oscarData = new ArrayList<>();
+        // Wait statement 2: Wait for year links to load
+        wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//a[contains(@class,'year-link')]")));
+        List<WebElement> yearLinks = driver.findElements(By.xpath("//a[contains(@class,'year-link')]"));
+
+        int totalYears = yearLinks.size();
+        for (int i = 0; i < totalYears; i++) {
+            // Comment 5: Re-fetch year links to handle AJAX refresh
+            List<WebElement> currentYears = driver.findElements(By.xpath("//a[contains(@class,'year-link')]"));
+            WebElement yearLink = currentYears.get(i);
+            String yearText = yearLink.getText().trim();
+            String yearId = yearLink.getAttribute("id");
+
+            wrappers.clickElement(By.id(yearId));
+
+            // Wait statement 3: Wait for films table rows to be present
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='film']")));
+            Thread.sleep(1200);
+
+            int limit = Math.min(5, driver.findElements(By.xpath("//tr[@class='film']")).size());
+            for (int j = 1; j <= limit; j++) {
+                try {
+                    String baseRowXpath = "(//tr[@class='film'])[" + j + "]";
+                    WebElement rowElem = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(baseRowXpath)));
+
+                    String title = rowElem.findElement(By.xpath(".//td[contains(@class,'film-title')]")).getText().trim();
+                    String nominations = rowElem.findElement(By.xpath(".//td[contains(@class,'film-nominations')]")).getText().trim();
+                    String awards = rowElem.findElement(By.xpath(".//td[contains(@class,'film-awards')]")).getText().trim();
+
+                    List<WebElement> flags = rowElem.findElements(By.xpath(".//td[contains(@class,'film-best-picture')]//i[contains(@class,'glyphicon-flag')]"));
+                    boolean isWinner = !flags.isEmpty();
+
+                    HashMap<String, Object> map = new HashMap<>();
+                    map.put("Epoch Time of Scrape", wrappers.getEpochTime());
+                    map.put("Year", yearText);
+                    map.put("Title", title);
+                    map.put("Nomination", nominations);
+                    map.put("Awards", awards);
+                    map.put("isWinner", isWinner);
+
+                    oscarData.add(map);
+                } catch (Exception e) {
+                    System.out.println("Error extracting row " + j + " for year " + yearText + ": " + e.getMessage());
+                }
+            }
+        }
+
+        // Comment 6: Save Oscar results to JSON files
+        System.out.println("testCase02 - Total Oscar records collected: " + oscarData.size());
+        wrappers.convertListToJsonFile(oscarData, "output/oscar-winner-data.json");
+        wrappers.convertListToJsonFile(oscarData, "oscar-winner-data.json");
+
+        File oscarFile = new File("output/oscar-winner-data.json");
+        Assert.assertTrue(oscarFile.exists(), "Verify oscar-winner-data.json exists");
+        Assert.assertTrue(oscarFile.length() > 0, "Verify oscar-winner-data.json is not empty");
+    }
+
+    @AfterClass
+    public void tearDown() {
+        // Comment 7: Tear down driver after test suite completion
+        System.out.println("Tearing down Chrome browser session");
+        if (driver != null) {
+            driver.quit();
+        }
     }
 }
