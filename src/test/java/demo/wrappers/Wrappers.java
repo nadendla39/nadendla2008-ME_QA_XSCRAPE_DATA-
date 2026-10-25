@@ -18,39 +18,40 @@ public class Wrappers {
     private WebDriverWait wait;
 
     public Wrappers(WebDriver driver) {
-        // Comment 1: Initialize wrapper driver and explicit wait instance
+        // Initialize driver reference
         this.driver = driver;
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        // Initialize WebDriverWait instance for wrapper actions
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(12));
         System.out.println("Wrappers initialized with explicit WebDriverWait");
     }
 
     public void navigateTo(String url) {
-        // Comment 2: Navigate to target URL
+        // Navigate to specified URL
         System.out.println("Navigating to URL: " + url);
         driver.get(url);
     }
 
     public void clickElement(By locator) {
-        // Comment 3: Wait for element to be present and clickable
-        WebDriverWait clickWait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        WebElement element = clickWait.until(ExpectedConditions.presenceOfElementLocated(locator));
+        // Wait statement for locating the clickable element
+        WebDriverWait waitClick = new WebDriverWait(driver, Duration.ofSeconds(10));
+        WebElement element = waitClick.until(ExpectedConditions.presenceOfElementLocated(locator));
         ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", element);
         try {
-            clickWait.until(ExpectedConditions.elementToBeClickable(element)).click();
-            System.out.println("Clicked element successfully: " + locator.toString());
+            waitClick.until(ExpectedConditions.elementToBeClickable(element)).click();
+            System.out.println("Successfully clicked on element: " + locator.toString());
         } catch (Exception e) {
             ((JavascriptExecutor) driver).executeScript("arguments[0].click();", element);
-            System.out.println("Clicked element via JS fallback: " + locator.toString());
+            System.out.println("Fallback JavaScript click executed on element: " + locator.toString());
         }
     }
 
     public long getEpochTime() {
-        // Comment 4: Generate scrape epoch timestamp
+        // Return current epoch timestamp in seconds
         return Instant.now().getEpochSecond();
     }
 
     public void convertListToJsonFile(List<HashMap<String, Object>> list, String filePath) {
-        // Comment 5: Serialize collected data list to JSON file format
+        // Convert scraped data list to target JSON file format
         try {
             File file = new File(filePath);
             File parentDir = file.getParentFile();
@@ -61,7 +62,7 @@ public class Wrappers {
             mapper.writerWithDefaultPrettyPrinter().writeValue(file, list);
             System.out.println("JSON successfully written to: " + file.getAbsolutePath());
         } catch (Exception e) {
-            System.out.println("Error writing JSON file: " + e.getMessage());
+            System.out.println("Error serializing to JSON file: " + e.getMessage());
         }
     }
 }

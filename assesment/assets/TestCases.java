@@ -26,40 +26,40 @@ public class TestCases {
 
     @BeforeClass
     public void setUp() {
-        // Comment: Setting up directories
+        // Step 1: Initialize log files and directories
         new File("build").mkdirs();
         new File("output").mkdirs();
         new File("assesment/assets").mkdirs();
         System.setProperty(ChromeDriverService.CHROME_DRIVER_LOG_PROPERTY, "build/chromedriver.log");
         System.setProperty(ChromeDriverService.CHROME_DRIVER_VERBOSE_LOG_PROPERTY, "true");
 
-        // Comment: Configuring Chrome options
+        // Step 2: Configure Chrome browser options
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--disable-blink-features=AutomationControlled");
         driver = new ChromeDriver(options);
         driver.manage().window().maximize();
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(6));
 
-        // Comment: Explicit WebDriverWait initialization
+        // Step 3: Initialize explicit WebDriverWait
         wait = new WebDriverWait(driver, Duration.ofSeconds(12));
         wrappers = new Wrappers(driver);
-        System.out.println("Driver setup finished successfully");
+        System.out.println("ChromeDriver initialized successfully for test execution");
     }
 
     @Test(priority = 1)
     public void testCase01() throws InterruptedException {
-        // Comment: Step 1 - Navigate to Hockey page
-        System.out.println("Starting testCase01 - Hockey Teams Scraper");
+        // Step 1: Navigate to Hockey Teams section
+        System.out.println("Executing testCase01: Hockey Teams Scraper");
         wrappers.navigateTo("https://www.scrapethissite.com/pages/");
         wrappers.clickElement(By.linkText("Hockey Teams: Forms, Searching and Pagination"));
 
         List<HashMap<String, Object>> hockeyData = new ArrayList<>();
 
-        // Comment: Step 2 - Loop through pages
+        // Step 2: Iterate across 4 pages of hockey data
         for (int page = 1; page <= 4; page++) {
-            // Wait for table to load
-            WebDriverWait wait1 = new WebDriverWait(driver, Duration.ofSeconds(10));
-            wait1.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='team']")));
+            // Wait for hockey team table rows to load
+            WebDriverWait pageWait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            pageWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='team']")));
             List<WebElement> rows = driver.findElements(By.xpath("//tr[@class='team']"));
 
             for (WebElement row : rows) {
@@ -67,7 +67,7 @@ public class TestCases {
                     String winPctText = row.findElement(By.xpath("./td[contains(@class,'pct')]")).getText().trim();
                     if (!winPctText.isEmpty()) {
                         double winPct = Double.parseDouble(winPctText);
-                        // Filter records
+                        // Filter teams with win percentage less than 40 percent
                         if (winPct < 0.40) {
                             String teamName = row.findElement(By.xpath("./td[contains(@class,'name')]")).getText().trim();
                             String year = row.findElement(By.xpath("./td[contains(@class,'year')]")).getText().trim();
@@ -91,8 +91,8 @@ public class TestCases {
             }
         }
 
-        // Comment: Step 3 - Output JSON results
-        System.out.println("testCase01 - Total items collected: " + hockeyData.size());
+        // Step 3: Write collected data to JSON output files
+        System.out.println("testCase01 - Total items collected (< 40% Win): " + hockeyData.size());
         wrappers.convertListToJsonFile(hockeyData, "output/hockey-team-data.json");
         wrappers.convertListToJsonFile(hockeyData, "hockey-team-data.json");
 
@@ -103,8 +103,8 @@ public class TestCases {
 
     @Test(priority = 2)
     public void testCase02() throws InterruptedException {
-        // Comment: Step 1 - Navigate to Oscar Films
-        System.out.println("Starting testCase02 - Oscar Films Scraper");
+        // Step 1: Navigate to Oscar Winning Films section
+        System.out.println("Executing testCase02: Oscar Winning Films Scraper");
         wrappers.navigateTo("https://www.scrapethissite.com/pages/");
 
         try {
@@ -114,14 +114,14 @@ public class TestCases {
         }
 
         List<HashMap<String, Object>> oscarData = new ArrayList<>();
-        // Wait for year buttons
-        WebDriverWait wait2 = new WebDriverWait(driver, Duration.ofSeconds(10));
-        wait2.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//a[contains(@class,'year-link')]")));
+        // Wait statement for year selection links
+        WebDriverWait yearWait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        yearWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//a[contains(@class,'year-link')]")));
         List<WebElement> yearLinks = driver.findElements(By.xpath("//a[contains(@class,'year-link')]"));
 
         int totalYears = yearLinks.size();
         for (int i = 0; i < totalYears; i++) {
-            // Comment: Iterate each year
+            // Re-fetch year links dynamically to prevent stale elements
             List<WebElement> currentYears = driver.findElements(By.xpath("//a[contains(@class,'year-link')]"));
             WebElement yearLink = currentYears.get(i);
             String yearText = yearLink.getText().trim();
@@ -129,16 +129,16 @@ public class TestCases {
 
             wrappers.clickElement(By.id(yearId));
 
-            // Wait for films table
-            WebDriverWait wait3 = new WebDriverWait(driver, Duration.ofSeconds(10));
-            wait3.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='film']")));
+            // Wait statement for film rows to re-render in DOM
+            WebDriverWait filmWait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            filmWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//tr[@class='film']")));
             Thread.sleep(1200);
 
             int limit = Math.min(5, driver.findElements(By.xpath("//tr[@class='film']")).size());
             for (int j = 1; j <= limit; j++) {
                 try {
                     String baseRowXpath = "(//tr[@class='film'])[" + j + "]";
-                    WebElement rowElem = wait3.until(ExpectedConditions.presenceOfElementLocated(By.xpath(baseRowXpath)));
+                    WebElement rowElem = filmWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(baseRowXpath)));
 
                     String title = rowElem.findElement(By.xpath(".//td[contains(@class,'film-title')]")).getText().trim();
                     String nominations = rowElem.findElement(By.xpath(".//td[contains(@class,'film-nominations')]")).getText().trim();
@@ -162,7 +162,7 @@ public class TestCases {
             }
         }
 
-        // Comment: Step 3 - Output Oscar JSON
+        // Step 2: Save Oscar film results to JSON files
         System.out.println("testCase02 - Total Oscar records collected: " + oscarData.size());
         wrappers.convertListToJsonFile(oscarData, "output/oscar-winner-data.json");
         wrappers.convertListToJsonFile(oscarData, "oscar-winner-data.json");
@@ -174,7 +174,7 @@ public class TestCases {
 
     @AfterClass
     public void tearDown() {
-        // Comment: Tear down driver
+        // Step 1: Quit WebDriver session
         System.out.println("Tearing down Chrome driver session.");
         if (driver != null) {
             driver.quit();
