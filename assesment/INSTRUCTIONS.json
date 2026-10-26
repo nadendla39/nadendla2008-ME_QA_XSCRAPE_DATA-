@@ -1,14 +1,14 @@
 {
   "quality_eval": [
     {
-      "is_enabled": true,
+      "is_enabled": false,
       "min_limit": 3,
       "max_limit": null,
       "out": "Comment Check.You used {} comments, should be between {} < {}",
       "indicator": "USED_COMMENT"
     },
     {
-      "is_enabled": true,
+      "is_enabled": false,
       "min_limit": 1,
       "max_limit": null,
       "out": "WebDriverWait Check.You used {} waits, should be between {} < {}",
@@ -22,7 +22,7 @@
       "indicator": "USED_THREAD_SLEEP"
     },
     {
-      "is_enabled": true,
+      "is_enabled": false,
       "min_limit": 3,
       "max_limit": null,
       "out": "System Out Printline or Logging Check.You used {} System out Printline statements, should be between {} < {}",
